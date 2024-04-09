@@ -139,8 +139,8 @@ int main(void)
   HAL_TIM_Encoder_Start(&htim3,TIM_CHANNEL_ALL);
   HAL_ADCEx_Calibration_Start(&hadc1, ADC_SINGLE_ENDED);
   PID.Kp =0.1;
-  PID.Ki =0.00001;
-  PID.Kd = 0.1;
+  PID.Ki =0;
+  PID.Kd = 0;
   arm_pid_init_f32(&PID, 0);
   HAL_TIM_Base_Start(&htim1);
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
@@ -162,26 +162,39 @@ int main(void)
 	  else if (check == 2)
 	  {
 		  NO2();
-//		  setposition = Gain;
-//		  position = QEIReadRaw;
+		  setposition = Gain;
+		  position = QEIReadRaw;
 		  static uint32_t timestamp =0;
 		  if(timestamp < HAL_GetTick())
 		  {
 			  timestamp = HAL_GetTick()+1;
 			  Vfeedback = arm_pid_f32(&PID, setposition - position);
 			  position = PlantSimulation(Vfeedback);
-//			  if (Vfeedback < 0)
-//			  {
-//				  G = 1;
-//				  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 2000);
-//				  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, 0);
-//			  }
-//			  else
-//			  {
-//				  G = 2;
-//				  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 0);
-//				  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, 2000);
-//			  }
+			  if (Vfeedback <= 0)
+			  {
+				  G = 1;
+				  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 0);
+				  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, 2000);
+				  if (Gain == QEIReadRaw)
+				  {
+	 				  G = 2;
+	  				  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 0);
+	  				  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, 0);
+	  			  }
+			  }
+
+			  else if (Vfeedback >= 0)
+			  {
+				  G = 3;
+				  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 2000);
+				  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, 0);
+				  if (Gain == QEIReadRaw)
+				  {
+  	 				  G = 2;
+  	 				  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 0);
+  	 				  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, 0);
+				  }
+			  }
 		  }
 	  }
 	  else
@@ -567,7 +580,7 @@ void NO2()
 	// ADC
 	static uint32_t TimeStamp = 0;
 	if( HAL_GetTick()<TimeStamp) return;
-	TimeStamp = HAL_GetTick()+100;
+	TimeStamp = HAL_GetTick()+500;
 	HAL_ADC_ConfigChannel(&hadc1, &ADC1_Channel[0].Config);
 	HAL_ADC_Start(&hadc1);
 	HAL_ADC_PollForConversion(&hadc1, 500);
@@ -576,7 +589,6 @@ void NO2()
 
 	// Scale 4095 to 3071
 	Gain = (ADC1_Channel[0].data*3071.0)/4095.0;
-
 }
 float PlantSimulation(float VIn) // run with fix frequency
 {
