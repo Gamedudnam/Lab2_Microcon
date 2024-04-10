@@ -48,21 +48,41 @@ UART_HandleTypeDef hlpuart1;
 
 TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim3;
+TIM_HandleTypeDef htim4;
 
 /* USER CODE BEGIN PV */
 int check = 1;
 uint32_t QEIReadRaw;
 float Radiant;
+float Radiant2;
 
 struct _ADC_tag
 {
 ADC_ChannelConfTypeDef Config;
 uint16_t data;
 };
-struct _ADC_tag ADC1_Channel[1] =
+struct _ADC_tag ADC1_Channel[3] =
 {
 {
 .Config.Channel = ADC_CHANNEL_1,
+.Config.Rank = ADC_REGULAR_RANK_1,
+.Config.SamplingTime = ADC_SAMPLETIME_640CYCLES_5,
+.Config.SingleDiff = ADC_SINGLE_ENDED,
+.Config.OffsetNumber = ADC_OFFSET_NONE,
+.Config.Offset = 0,
+.data = 0
+},
+{
+.Config.Channel = ADC_CHANNEL_2,
+.Config.Rank = ADC_REGULAR_RANK_1,
+.Config.SamplingTime = ADC_SAMPLETIME_640CYCLES_5,
+.Config.SingleDiff = ADC_SINGLE_ENDED,
+.Config.OffsetNumber = ADC_OFFSET_NONE,
+.Config.Offset = 0,
+.data = 0
+},
+{
+.Config.Channel = ADC_CHANNEL_15,
 .Config.Rank = ADC_REGULAR_RANK_1,
 .Config.SamplingTime = ADC_SAMPLETIME_640CYCLES_5,
 .Config.SingleDiff = ADC_SINGLE_ENDED,
@@ -76,9 +96,13 @@ arm_pid_instance_f32 PID = {0};
 float position =0;
 float setposition =0;
 float Vfeedback = 0;
+float position2 =0;
+float setposition2 =0;
+float Vfeedback2 = 0;
 float Gain;
 int G;
 int Diff;
+int Diff2;
 
 /* USER CODE END PV */
 
@@ -90,6 +114,7 @@ static void MX_LPUART1_UART_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_TIM1_Init(void);
+static void MX_TIM4_Init(void);
 /* USER CODE BEGIN PFP */
 void NO1();
 void NO2();
@@ -136,6 +161,7 @@ int main(void)
   MX_TIM3_Init();
   MX_ADC1_Init();
   MX_TIM1_Init();
+  MX_TIM4_Init();
   /* USER CODE BEGIN 2 */
   HAL_TIM_Encoder_Start(&htim3,TIM_CHANNEL_ALL);
   HAL_ADCEx_Calibration_Start(&hadc1, ADC_SINGLE_ENDED);
@@ -146,6 +172,9 @@ int main(void)
   HAL_TIM_Base_Start(&htim1);
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2);
+  HAL_TIM_Base_Start(&htim4);
+  HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_1);
+  HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_2);
 
   /* USER CODE END 2 */
 
@@ -159,6 +188,45 @@ int main(void)
 	  if (check == 1)
 	  {
 		  NO1();
+		  setposition2 = ADC1_Channel[2].data;
+		  position2 = ADC1_Channel[1].data;
+		  Diff2 = ADC1_Channel[2].data - ADC1_Channel[1].data;
+		  static uint32_t timestamp =0;
+		  if(timestamp < HAL_GetTick())
+		  {
+			  timestamp = HAL_GetTick()+1;
+			  Vfeedback2 = arm_pid_f32(&PID, setposition2 - position2);
+			  position2 = PlantSimulation(Vfeedback2);
+//			  if (Vfeedback > 3199)
+//			  {
+//				  Vfeedback = 3199;
+//			  }
+			  if (Diff2 < 0)
+			  {
+				  G = 1;
+				  __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_1, 0);
+				  __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_2, -Vfeedback2);
+				  if (Diff2 == 0)
+				  {
+					  G = 2;
+					  __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_1, 0);
+					  __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_2, 0);
+				  }
+			  }
+
+			  else if (Diff2 > 0)
+			  {
+				  G = 3;
+				  __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_1, Vfeedback2);
+				  __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_2, 0);
+				  if (Diff2 == 0)
+				  {
+					  G = 4;
+					  __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_1, 0);
+					  __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_2, 0);
+				  }
+			  }
+		  }
 	  }
 	  else if (check == 2)
 	  {
@@ -509,6 +577,69 @@ static void MX_TIM3_Init(void)
 }
 
 /**
+  * @brief TIM4 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM4_Init(void)
+{
+
+  /* USER CODE BEGIN TIM4_Init 0 */
+
+  /* USER CODE END TIM4_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
+
+  /* USER CODE BEGIN TIM4_Init 1 */
+
+  /* USER CODE END TIM4_Init 1 */
+  htim4.Instance = TIM4;
+  htim4.Init.Prescaler = 169;
+  htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim4.Init.Period = 19999;
+  htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim4) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim4, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_PWM_Init(&htim4) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim4, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = 0;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  if (HAL_TIM_PWM_ConfigChannel(&htim4, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_PWM_ConfigChannel(&htim4, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM4_Init 2 */
+
+  /* USER CODE END TIM4_Init 2 */
+  HAL_TIM_MspPostInit(&htim4);
+
+}
+
+/**
   * Enable DMA controller clock
   */
 static void MX_DMA_Init(void)
@@ -573,15 +704,27 @@ void NO1()
 	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5,GPIO_PIN_SET);
 	ADC1_Channel[0].data = 0;
 
-	//ADC Position
+	//ADC Position[1], Setposition[2]
+	static uint32_t TimeStamp = 0;
+	if( HAL_GetTick()<TimeStamp) return;
+	TimeStamp = HAL_GetTick()+500;
+	HAL_ADC_ConfigChannel(&hadc1, &ADC1_Channel[1].Config);
+	HAL_ADC_ConfigChannel(&hadc1, &ADC1_Channel[2].Config);
+	HAL_ADC_Start(&hadc1);
+	HAL_ADC_PollForConversion(&hadc1, 500);
+	ADC1_Channel[1].data = HAL_ADC_GetValue(&hadc1);
+	ADC1_Channel[2].data = HAL_ADC_GetValue(&hadc1);
+	HAL_ADC_Stop(&hadc1);
+	Radiant2 = (ADC1_Channel[1].data*6.28)/4095.0;
 
-	//ADC Setposition
 }
 
 void NO2()
 {
 	// LD2
 	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5,GPIO_PIN_RESET);
+	ADC1_Channel[1].data = 0;
+	ADC1_Channel[2].data = 0;
 
 	// QEI
 	QEIReadRaw = __HAL_TIM_GET_COUNTER(&htim3);
@@ -618,6 +761,8 @@ void NO3()
 	HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
 	HAL_Delay(100);
 	ADC1_Channel[0].data = 0;
+	ADC1_Channel[1].data = 0;
+	ADC1_Channel[2].data = 0;
 }
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
