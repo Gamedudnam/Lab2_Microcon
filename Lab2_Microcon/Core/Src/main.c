@@ -172,6 +172,10 @@ int main(void)
 			  timestamp = HAL_GetTick()+1;
 			  Vfeedback = arm_pid_f32(&PID, setposition - position);
 			  position = PlantSimulation(Vfeedback);
+			  if (Vfeedback > 3199)
+			  {
+				  Vfeedback = 3199;
+			  }
 			  if (Diff < 0)
 			  {
 				  G = 1;
@@ -568,6 +572,10 @@ void NO1()
 	//LD2
 	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5,GPIO_PIN_SET);
 	ADC1_Channel[0].data = 0;
+
+	//ADC Position
+
+	//ADC Setposition
 }
 
 void NO2()
