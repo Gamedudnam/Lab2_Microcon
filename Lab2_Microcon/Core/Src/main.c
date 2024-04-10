@@ -78,6 +78,7 @@ float setposition =0;
 float Vfeedback = 0;
 float Gain;
 int G;
+int Diff;
 
 /* USER CODE END PV */
 
@@ -138,7 +139,7 @@ int main(void)
   /* USER CODE BEGIN 2 */
   HAL_TIM_Encoder_Start(&htim3,TIM_CHANNEL_ALL);
   HAL_ADCEx_Calibration_Start(&hadc1, ADC_SINGLE_ENDED);
-  PID.Kp =0.1;
+  PID.Kp =1;
   PID.Ki =0;
   PID.Kd = 0;
   arm_pid_init_f32(&PID, 0);
@@ -164,18 +165,19 @@ int main(void)
 		  NO2();
 		  setposition = Gain;
 		  position = QEIReadRaw;
+		  Diff = Gain - QEIReadRaw;
 		  static uint32_t timestamp =0;
 		  if(timestamp < HAL_GetTick())
 		  {
 			  timestamp = HAL_GetTick()+1;
 			  Vfeedback = arm_pid_f32(&PID, setposition - position);
 			  position = PlantSimulation(Vfeedback);
-			  if (Vfeedback <= 0)
+			  if (Diff < 0)
 			  {
 				  G = 1;
 				  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 0);
-				  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, 2000);
-				  if (Gain == QEIReadRaw)
+				  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, -Vfeedback);
+				  if (Diff == 0)
 				  {
 	 				  G = 2;
 	  				  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 0);
@@ -183,14 +185,14 @@ int main(void)
 	  			  }
 			  }
 
-			  else if (Vfeedback >= 0)
+			  else if (Diff > 0)
 			  {
 				  G = 3;
-				  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 2000);
+				  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, Vfeedback);
 				  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, 0);
-				  if (Gain == QEIReadRaw)
+				  if (Diff == 0)
 				  {
-  	 				  G = 2;
+  	 				  G = 4;
   	 				  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 0);
   	 				  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, 0);
 				  }
@@ -390,7 +392,7 @@ static void MX_TIM1_Init(void)
   htim1.Instance = TIM1;
   htim1.Init.Prescaler = 169;
   htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim1.Init.Period = 19999;
+  htim1.Init.Period = 3199;
   htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim1.Init.RepetitionCounter = 0;
   htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
