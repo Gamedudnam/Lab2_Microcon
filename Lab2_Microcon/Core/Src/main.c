@@ -164,7 +164,6 @@ int main(void)
 		  {
 			  timestamp = HAL_GetTick()+1;
 			  Vfeedback2 = arm_pid_f32(&PID, setposition2 - position2);
-			  position2 = PlantSimulation(Vfeedback2);
 			  if (Vfeedback2 > 9999)
 			  {
 				  Vfeedback2 = 9999;
@@ -214,18 +213,17 @@ int main(void)
 		  {
 			  timestamp = HAL_GetTick()+1;
 			  Vfeedback = arm_pid_f32(&PID, setposition - position);
-			  position = PlantSimulation(Vfeedback);
 			  if (Vfeedback > 19999)
 			  {
 				  Vfeedback = 19999;
 			  }
-			  if (Vfeedback > 0 && Vfeedback < 2000)
+			  if (Vfeedback > 0 && Vfeedback < 1500)
 			  {
-				  Vfeedback = 2000;
+				  Vfeedback = 1500;
 			  }
-			  if (Vfeedback < 0 && Vfeedback > -2000)
+			  if (Vfeedback < 0 && Vfeedback > -1500)
 			  {
-				  Vfeedback = -2000;
+				  Vfeedback = -1500;
 			  }
 			  if (Diff < 0)
 			  {
@@ -721,18 +719,6 @@ void NO2()
 	// Scale 4095 to 3071
 	Gain = (ADC_RawRead[0]*3071.0)/4095.0;
 }
-float PlantSimulation(float VIn) // run with fix frequency
-{
-	static float speed =0;
-	static float position =0;
-	float current= VIn - speed * 0.0123;
-	float torque = current * 0.456;
-	float acc = torque * 0.789;
-	speed += acc;
-	position += speed;
-	return position;
-}
-
 void NO3()
 {
 	//LD2
