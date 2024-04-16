@@ -165,9 +165,9 @@ int main(void)
   /* USER CODE BEGIN 2 */
   HAL_TIM_Encoder_Start(&htim3,TIM_CHANNEL_ALL);
   HAL_ADCEx_Calibration_Start(&hadc1, ADC_SINGLE_ENDED);
-  PID.Kp =1;
-  PID.Ki =0;
-  PID.Kd = 0;
+  PID.Kp =12;
+  PID.Ki =0.0001;
+  PID.Kd =2.5;
   arm_pid_init_f32(&PID, 0);
   HAL_TIM_Base_Start(&htim1);
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
@@ -206,12 +206,6 @@ int main(void)
 				  G = 1;
 				  __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_1, 0);
 				  __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_2, -Vfeedback2);
-				  if (Diff2 == 0)
-				  {
-					  G = 2;
-					  __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_1, 0);
-					  __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_2, 0);
-				  }
 			  }
 
 			  else if (Diff2 > 0)
@@ -219,12 +213,6 @@ int main(void)
 				  G = 3;
 				  __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_1, Vfeedback2);
 				  __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_2, 0);
-				  if (Diff2 == 0)
-				  {
-					  G = 4;
-					  __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_1, 0);
-					  __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_2, 0);
-				  }
 			  }
 		  }
 	  }
@@ -240,21 +228,23 @@ int main(void)
 			  timestamp = HAL_GetTick()+1;
 			  Vfeedback = arm_pid_f32(&PID, setposition - position);
 			  position = PlantSimulation(Vfeedback);
-			  if (Vfeedback > 3199)
+			  if (Vfeedback > 19999)
 			  {
-				  Vfeedback = 3199;
+				  Vfeedback = 19999;
+			  }
+			  if (Vfeedback > 0 && Vfeedback < 2000)
+			  {
+				  Vfeedback = 2000;
+			  }
+			  if (Vfeedback < 0 && Vfeedback > -2000)
+			  {
+				  Vfeedback = -2000;
 			  }
 			  if (Diff < 0)
 			  {
 				  G = 1;
 				  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 0);
 				  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, -Vfeedback);
-				  if (Diff == 0)
-				  {
-	 				  G = 2;
-	  				  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 0);
-	  				  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, 0);
-	  			  }
 			  }
 
 			  else if (Diff > 0)
@@ -262,12 +252,12 @@ int main(void)
 				  G = 3;
 				  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, Vfeedback);
 				  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, 0);
-				  if (Diff == 0)
-				  {
-  	 				  G = 4;
-  	 				  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 0);
-  	 				  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, 0);
-				  }
+			  }
+			  if (Diff == 0)
+			  {
+				  G = 2;
+				  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 0);
+				  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, 0);
 			  }
 		  }
 	  }
@@ -464,7 +454,7 @@ static void MX_TIM1_Init(void)
   htim1.Instance = TIM1;
   htim1.Init.Prescaler = 169;
   htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim1.Init.Period = 3199;
+  htim1.Init.Period = 19999;
   htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim1.Init.RepetitionCounter = 0;
   htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
