@@ -55,43 +55,7 @@ int check = 0;
 uint32_t QEIReadRaw;
 float Radiant;
 float Radiant2;
-
-struct _ADC_tag
-{
-ADC_ChannelConfTypeDef Config;
-uint16_t data;
-};
-struct _ADC_tag ADC1_Channel[3] =
-{
-{
-.Config.Channel = ADC_CHANNEL_1,
-.Config.Rank = ADC_REGULAR_RANK_1,
-.Config.SamplingTime = ADC_SAMPLETIME_640CYCLES_5,
-.Config.SingleDiff = ADC_SINGLE_ENDED,
-.Config.OffsetNumber = ADC_OFFSET_NONE,
-.Config.Offset = 0,
-.data = 0
-},
-{
-.Config.Channel = ADC_CHANNEL_2,
-.Config.Rank = ADC_REGULAR_RANK_1,
-.Config.SamplingTime = ADC_SAMPLETIME_640CYCLES_5,
-.Config.SingleDiff = ADC_SINGLE_ENDED,
-.Config.OffsetNumber = ADC_OFFSET_NONE,
-.Config.Offset = 0,
-.data = 0
-},
-{
-.Config.Channel = ADC_CHANNEL_15,
-.Config.Rank = ADC_REGULAR_RANK_1,
-.Config.SamplingTime = ADC_SAMPLETIME_640CYCLES_5,
-.Config.SingleDiff = ADC_SINGLE_ENDED,
-.Config.OffsetNumber = ADC_OFFSET_NONE,
-.Config.Offset = 0,
-.data = 0
-}
-};
-
+uint16_t ADC_RawRead[3]={0};
 arm_pid_instance_f32 PID = {0};
 float position =0;
 float setposition =0;
@@ -165,15 +129,11 @@ int main(void)
   /* USER CODE BEGIN 2 */
   HAL_TIM_Encoder_Start(&htim3,TIM_CHANNEL_ALL);
   HAL_ADCEx_Calibration_Start(&hadc1, ADC_SINGLE_ENDED);
+  HAL_ADC_Start_DMA(&hadc1, ADC_RawRead, 3);
   // faulhaber
-//  PID.Kp =12;
-//  PID.Ki =0.0001;
-//  PID.Kd =2.5;
-
-  // motor
-  PID.Kp =3;
-  PID.Ki =0;
-  PID.Kd =0;
+  PID.Kp =15;
+  PID.Ki =0.0002;
+  PID.Kd =2.5;
 
   arm_pid_init_f32(&PID, 0);
   HAL_TIM_Base_Start(&htim1);
@@ -196,9 +156,9 @@ int main(void)
 		  NO1();
 		  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 0);
 		  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, 0);
-		  setposition2 = ADC1_Channel[1].data;
-		  position2 = ADC1_Channel[2].data;
-		  Diff2 = ADC1_Channel[1].data - ADC1_Channel[2].data;
+		  setposition2 = ADC_RawRead[1];
+		  position2 = ADC_RawRead[2];
+		  Diff2 = ADC_RawRead[1] - ADC_RawRead[2];
 		  static uint32_t timestamp =0;
 		  if(timestamp < HAL_GetTick())
 		  {
@@ -213,14 +173,14 @@ int main(void)
 			  {
 				  Vfeedback2 = -9999;
 			  }
-			  if (Vfeedback2 > 0 && Vfeedback2 < 1000)
-			  {
-				  Vfeedback2 = 1000;
-			  }
-			  if (Vfeedback2 < 0 && Vfeedback2 > -1000)
-			  {
-				  Vfeedback2 = -1000;
-			  }
+//			  if (Vfeedback2 > 0 && Vfeedback2 < 1000)
+//			  {
+//				  Vfeedback2 = 1000;
+//			  }
+//			  if (Vfeedback2 < 0 && Vfeedback2 > -1000)
+//			  {
+//				  Vfeedback2 = -1000;
+//			  }
 			  if (Diff2 < 0)
 			  {
 				  G = 1;
@@ -245,6 +205,7 @@ int main(void)
 	  else if (check == 2)
 	  {
 		  NO2();
+		  __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_1, 0);
 		  setposition = Gain;
 		  position = QEIReadRaw;
 		  Diff = Gain - QEIReadRaw;
@@ -631,7 +592,7 @@ static void MX_TIM4_Init(void)
   htim4.Instance = TIM4;
   htim4.Init.Prescaler = 169;
   htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim4.Init.Period = 49999;
+  htim4.Init.Period = 9999;
   htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim4) != HAL_OK)
@@ -741,21 +702,8 @@ void NO1()
 {
 	//LD2
 	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5,GPIO_PIN_SET);
-	ADC1_Channel[0].data = 0;
-
-	//ADC Position[1], Setposition[2]
-	static uint32_t TimeStamp = 0;
-	if( HAL_GetTick()<TimeStamp) return;
-	TimeStamp = HAL_GetTick()+500;
-	for(int i=1;i<3;i++)
-	{
-		HAL_ADC_ConfigChannel(&hadc1, &ADC1_Channel[i].Config);
-		HAL_ADC_Start(&hadc1);
-		HAL_ADC_PollForConversion(&hadc1, 500);
-		ADC1_Channel[i].data = HAL_ADC_GetValue(&hadc1);
-		HAL_ADC_Stop(&hadc1);
-	}
-	Radiant2 = (ADC1_Channel[1].data*6.28)/4095.0;
+	ADC_RawRead[0] = 0;
+	Radiant2 = (ADC_RawRead[2]*6.28)/4095.0;
 
 }
 
@@ -763,25 +711,15 @@ void NO2()
 {
 	// LD2
 	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5,GPIO_PIN_RESET);
-	ADC1_Channel[1].data = 0;
-	ADC1_Channel[2].data = 0;
+	ADC_RawRead[1] = 0;
+	ADC_RawRead[2] = 0;
 
 	// QEI
 	QEIReadRaw = __HAL_TIM_GET_COUNTER(&htim3);
 	Radiant = (QEIReadRaw*6.28)/3071.0;
 
-	// ADC
-	static uint32_t TimeStamp = 0;
-	if( HAL_GetTick()<TimeStamp) return;
-	TimeStamp = HAL_GetTick()+500;
-	HAL_ADC_ConfigChannel(&hadc1, &ADC1_Channel[0].Config);
-	HAL_ADC_Start(&hadc1);
-	HAL_ADC_PollForConversion(&hadc1, 500);
-	ADC1_Channel[0].data = HAL_ADC_GetValue(&hadc1);
-	HAL_ADC_Stop(&hadc1);
-
 	// Scale 4095 to 3071
-	Gain = (ADC1_Channel[0].data*3071.0)/4095.0;
+	Gain = (ADC_RawRead[0]*3071.0)/4095.0;
 }
 float PlantSimulation(float VIn) // run with fix frequency
 {
@@ -800,9 +738,9 @@ void NO3()
 	//LD2
 	HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
 	HAL_Delay(100);
-	ADC1_Channel[0].data = 0;
-	ADC1_Channel[1].data = 0;
-	ADC1_Channel[2].data = 0;
+//	ADC1_Channel[0].data = 0;
+//	ADC1_Channel[1].data = 0;
+//	ADC1_Channel[2].data = 0;
 }
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
