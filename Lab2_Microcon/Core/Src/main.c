@@ -67,6 +67,9 @@ float Gain;
 int G;
 int Diff;
 int Diff2;
+float Kp1;
+float Ki1;
+float Kd1;
 
 /* USER CODE END PV */
 
@@ -131,9 +134,14 @@ int main(void)
   HAL_ADCEx_Calibration_Start(&hadc1, ADC_SINGLE_ENDED);
   HAL_ADC_Start_DMA(&hadc1, ADC_RawRead, 3);
   // faulhaber
-  PID.Kp =15;
-  PID.Ki =0.0002;
-  PID.Kd =2.5;
+//  PID.Kp = 15;
+//  PID.Ki = 0.0002;
+//  PID.Kd = 2.5;
+
+  // motor
+  PID.Kp = 15;
+  PID.Ki = 0.0004;
+  PID.Kd = 4;
 
   arm_pid_init_f32(&PID, 0);
   HAL_TIM_Base_Start(&htim1);
@@ -179,6 +187,26 @@ int main(void)
 //			  if (Vfeedback2 < 0 && Vfeedback2 > -1000)
 //			  {
 //				  Vfeedback2 = -1000;
+//			  }
+//			  if (ADC_RawRead[1] > 3500)
+//			  {
+//				  Vfeedback2 = Vfeedback2/3;
+//			  }
+//			  if (ADC_RawRead[2] == 4050)
+//			  {
+//				  __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_1, 0);
+//			  }
+//			  if (ADC_RawRead[1] < 500 )
+// 			  {
+//				  Vfeedback2 = Vfeedback2/3;
+//			  }
+//			  if (ADC_RawRead[2] == 50)
+//			  {
+//				  __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_1, 0);
+//			  }
+////			  if (ADC_RawRead[2] == )
+//			  {
+//				  __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_1, 0);
 //			  }
 			  if (Diff2 < 0)
 			  {
